@@ -7,7 +7,7 @@ TEAMS = {
     "gr": {"name":"Green","short":"GRN"},
 }
 
-def other_teams(team: str)-> str:
+def other_team(team: str)-> str:
     """Given one team key, return the other one."""
     return "gr" if team == "by" else "by"
 
@@ -143,7 +143,7 @@ class Game:
         self._next_id += 1
         if not event.clock:
             event.clock = self.clock_at(event.t)
-        event.period = self.period_at(event.t) or self.event.period
+        event.period = self.period_at(event.t) or event.period
 
         for ep in event.players:
             self.add_player(ep.team,ep.number)
@@ -181,10 +181,6 @@ class Game:
         sync = self._sync_before(t)
         return sync.period if sync else "1"
 
-    def period_at(self,t:float)-> str:
-        sync=self._sync_before(t)
-        return sync.period if sync else "1"
-
     def to_dict(self)-> dict:
         return asdict(self)
 
@@ -210,4 +206,4 @@ def mmss(seconds:float,tenths:bool=False) -> str:
     rest = seconds-minutes *60
     if tenths:
         return f"{minutes}:{rest:04.1f}"
-    return f"{minutes}: {int(rest):02d}"
+    return f"{minutes}:{int(rest):02d}"
