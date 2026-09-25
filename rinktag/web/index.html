@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rink Tag</title>
+<style>
+  :root{
+    --rink:#141E28; --board:#1C2A36; --board2:#243444; --edge:#31465A;
+    --ice:#E6EFF5; --muted:#8FA6B8; --blue:#59A8DC; --red:#C8102E;
+    --amber:#F2C230; --lime:#8FD94A;
+    --font:"Segoe UI",system-ui,sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--rink);color:var(--ice);font-family:var(--font);font-size:15px}
+  button,input,select{font-family:inherit;font-size:inherit;color:inherit}
+  button{cursor:pointer}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;
+       background:var(--board);border-bottom:1px solid var(--edge);position:sticky;top:0;z-index:10}
+  .brand{font-size:22px;font-weight:700;letter-spacing:.01em}
+  .brand span{color:var(--blue)}
+  .btn{background:var(--board2);border:1px solid var(--edge);border-radius:6px;padding:7px 12px}
+  .btn:hover{background:#2C4054}
+  .btn.primary{background:var(--blue);border-color:var(--blue);color:#0B1620;font-weight:600}
+  input[type=text]{background:var(--board2);border:1px solid var(--edge);border-radius:6px;padding:6px 9px}
+  .spacer{flex:1}
+  .status{font-size:13px;color:var(--muted)}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;padding:14px;align-items:start}
+  @media (max-width:1050px){.layout{grid-template-columns:1fr}}
+  .panel{background:var(--board);border:1px solid var(--edge);border-radius:10px;margin-bottom:14px}
+  .panel h2{margin:0;padding:10px 14px;font-size:16px;border-bottom:1px solid var(--edge)}
+  .panel h2 small{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+  .panel .body{padding:12px 14px}
+  .stage{position:relative;background:#000;border:1px solid var(--edge);border-radius:10px;overflow:hidden}
+  video{display:block;width:100%;max-height:60vh;background:#000}
+  .drop{display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;
+        min-height:300px;color:var(--muted);text-align:center;padding:24px}
+  .drop b{color:var(--ice);font-size:20px}
+  .hud{position:absolute;inset:auto 0 0 0;padding:12px 14px;display:none;
+       background:linear-gradient(to top,rgba(8,14,20,.96),transparent)}
+  .hud.on{display:block}
+  .hud .l1{font-size:24px;font-weight:700}
+  .hud .l2{font-size:13px;color:var(--muted)}
+  .buf{display:inline-block;min-width:54px;padding:0 8px;margin-left:8px;border-radius:6px;
+       background:var(--blue);color:#0B1620;text-align:center}
+  .buf.empty{background:var(--board2);color:var(--muted)}
+  .transport{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:10px;
+             background:var(--board);border:1px solid var(--edge);border-top:0;border-radius:0 0 10px 10px}
+  .chip{background:var(--board2);border:1px solid var(--edge);border-radius:6px;padding:5px 9px;font-size:14px}
+  .chip[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#0B1620}
+  .time{font-variant-numeric:tabular-nums;font-size:20px;min-width:104px}
+  .time small{color:var(--muted);font-size:12px}
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tab{flex:1;border:1px solid var(--edge);background:var(--board2);border-radius:7px;padding:7px;font-weight:600}
+  .tab[aria-pressed=true][data-team=by]{background:var(--amber);color:#1A1405;border-color:var(--amber)}
+  .tab[aria-pressed=true][data-team=gr]{background:var(--lime);color:#0F1B05;border-color:var(--lime)}
+  .keys{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
+  .key{display:flex;gap:8px;align-items:center;background:var(--board2);border:1px solid var(--edge);
+       border-radius:7px;padding:6px 8px;text-align:left;font-size:13px}
+  kbd{background:var(--rink);border:1px solid var(--edge);border-radius:4px;padding:1px 6px;font-weight:700}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .pchip{border:1px solid var(--edge);background:var(--board2);border-radius:999px;padding:4px 11px;font-weight:600}
+  .pchip.unconfirmed{border-style:dashed;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--edge);
+     position:sticky;top:0;background:var(--board)}
+  td{padding:5px 8px;border-bottom:1px solid rgba(49,70,90,.5)}
+  tr:hover{background:#1F3040}
+  .num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .scroll{max-height:42vh;overflow:auto}
+  .goal{color:var(--red);font-weight:700}
+  .onice{color:var(--blue)}
+  .flag{color:#F0B429}
+  .muted{color:var(--muted);font-size:13px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--board2);
+         border:1px solid var(--edge);border-radius:8px;padding:10px 16px;display:none;z-index:50}
+  .toast.on{display:block}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="brand">Rink<span>Tag</span></div>
+  <input type="text" id="gameName" size="24">
+  <label class="btn">Load video<input type="file" id="videoFile" accept="video/*" hidden></label>
+  <button class="btn" id="exportBtn">Export workbook</button>
+  <button class="btn" id="snapBtn">Snapshot</button>
+  <div class="spacer"></div>
+  <div class="status" id="status">connecting…</div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="stage" id="stage">
+      <div class="drop" id="drop">
+        <b>Drop the game video here</b>
+        <div>The file never leaves your computer. Python only ever sees timestamps.</div>
+      </div>
+      <video id="video" style="display:none" playsinline></video>
+      <div class="hud" id="hud"><div class="l1" id="hud1"></div><div class="l2" id="hud2"></div></div>
+    </div>
+    <div class="transport">
+      <button class="chip" id="playBtn">Play</button>
+      <div class="time"><span id="tNow">0:00.0</span> <small id="tDur">/ 0:00</small></div>
+      <button class="chip" data-seek="-10">−10s</button>
+      <button class="chip" data-seek="-5">−5s</button>
+      <button class="chip" data-seek="-1">−1s</button>
+      <button class="chip" data-seek="1">+1s</button>
+      <button class="chip" data-seek="5">+5s</button>
+      <button class="chip" data-seek="10">+10s</button>
+      <span class="muted">speed</span>
+      <button class="chip" data-rate="0.5">0.5</button>
+      <button class="chip" data-rate="1" aria-pressed="true">1</button>
+      <button class="chip" data-rate="1.5">1.5</button>
+      <button class="chip" data-rate="2">2</button>
+      <button class="chip" data-rate="4">4</button>
+      <button class="chip" id="resumeBtn" aria-pressed="true">auto-resume</button>
+    </div>
+
+    <div class="panel" style="margin-top:14px">
+      <h2>Game clock <small>re-sync at every faceoff — the clock stops, the video doesn't</small></h2>
+      <div class="body row">
+        <select id="period"><option>1</option><option>2</option><option>3</option><option>OT</option></select>
+        <input type="text" id="clockIn" placeholder="mm:ss" size="6">
+        <button class="btn primary" id="syncBtn">Set clock here</button>
+        <span class="muted" id="clockNow">no sync yet</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Event log <small id="logCount"></small></h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Video</th><th>Clock</th><th>P</th><th>Event</th><th>Team</th><th>Players</th><th>Note</th><th></th></tr></thead>
+          <tbody id="log"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Tagging <small>Tab switches team</small></h2>
+      <div class="body">
+        <div class="tabs" id="teamTabs"></div>
+        <div class="keys" id="keys"></div>
+        <div class="muted" style="margin-top:10px">
+          While a tag is open: digits type the number, <kbd>/</kbd> unknown player,
+          <kbd>?</kbd> flag for review, <kbd>Enter</kbd> save, <kbd>Esc</kbd> cancel.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Players</h2>
+      <div class="body">
+        <div class="tabs" id="rosterTabs"></div>
+        <div class="chips" id="roster"></div>
+        <div class="row">
+          <input type="text" id="newNum" placeholder="number or A" size="7">
+          <select id="newPos"><option value="">pos</option><option>F</option><option>D</option><option>G</option></select>
+          <button class="btn" id="addPlayer">Add</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input type="text" id="oldNum" placeholder="A" size="5">
+          <span class="muted">→</span>
+          <input type="text" id="renameTo" placeholder="17" size="5">
+          <button class="btn" id="renameBtn">Rename everywhere</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Live totals <small>from stats.py</small></h2>
+      <div class="body" id="live"><span class="muted">nothing logged yet</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const video = $("video");
+let CONFIG = {events:{}, teams:{}};
+let focusTeam = "by", rosterTab = "by", autoResume = true, pending = null, clip = "";
+
+const api = async (path, method="GET", body=null) => {
+  const res = await fetch("/api" + path, {
+    method,
+    headers: body ? {"Content-Type":"application/json"} : {},
+    body: body ? JSON.stringify(body) : null
+  });
+  if(!res.ok){
+    const detail = await res.json().catch(()=>({detail:res.statusText}));
+    throw new Error(detail.detail || "request failed");
+  }
+  return res.json();
+};
+const toast = msg => {
+  const el = $("toast"); el.textContent = msg; el.classList.add("on");
+  clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove("on"), 2200);
+};
+const fmt = (t, dec) => {
+  t = Math.max(0, t||0);
+  const m = Math.floor(t/60), s = t - m*60;
+  return m + ":" + (s<10?"0":"") + (dec ? s.toFixed(1) : Math.floor(s));
+};
+
+/* ---------- video ---------- */
+function openFile(file){
+  if(!file) return;
+  video.src = URL.createObjectURL(file);
+  video.style.display = "block";
+  $("drop").style.display = "none";
+  clip = file.name;
+  toast("loaded " + file.name);
+}
+$("videoFile").onchange = e => openFile(e.target.files[0]);
+["dragover","dragenter"].forEach(n => $("drop").addEventListener(n, e => e.preventDefault()));
+$("drop").addEventListener("drop", e => { e.preventDefault(); openFile(e.dataTransfer.files[0]); });
+$("playBtn").onclick = () => video.src && (video.paused ? video.play() : video.pause());
+video.onplay  = () => $("playBtn").textContent = "Pause";
+video.onpause = () => $("playBtn").textContent = "Play";
+video.onloadedmetadata = () => $("tDur").textContent = "/ " + fmt(video.duration);
+video.ontimeupdate = () => $("tNow").textContent = fmt(video.currentTime, true);
+const seek = d => { if(video.src) video.currentTime = Math.max(0, video.currentTime + d); };
+document.querySelectorAll("[data-seek]").forEach(b => b.onclick = () => seek(+b.dataset.seek));
+document.querySelectorAll("[data-rate]").forEach(b => b.onclick = () => {
+  video.playbackRate = +b.dataset.rate;
+  document.querySelectorAll("[data-rate]").forEach(o => o.setAttribute("aria-pressed", o===b));
+});
+$("resumeBtn").onclick = function(){ autoResume = !autoResume; this.setAttribute("aria-pressed", autoResume); };
+
+/* ---------- tagging state machine ---------- */
+const other = t => t === "by" ? "gr" : "by";
+function startTag(key){
+  if(!video.src) return toast("load the video first");
+  const def = CONFIG.events[key];
+  if(!def) return;
+  video.pause();
+  pending = {key, def, team:focusTeam, t:video.currentTime, step:0, buf:"", players:[], quals:[], flagged:false};
+  if(def.flow === "note"){
+    const text = prompt("Observation at " + fmt(video.currentTime, true));
+    if(text){ pending.note = text; commit(); } else { pending = null; }
+    return;
+  }
+  drawHud();
+}
+const lastStep = () => pending.def.flow === "goal" ? 2 : pending.def.flow === "faceoff" ? 1 : 0;
+const stepTeam = () => (pending.def.flow === "faceoff" && pending.step === 1) ? other(pending.team) : pending.team;
+const stepLabel = () => ({
+  goal:    ["scorer #", "primary assist # (Enter to skip)", "second assist # (Enter to skip)"],
+  faceoff: ["won by #", "lost by # (Enter to skip)"],
+  onice:   ["numbers on the ice, separated by spaces"],
+})[pending.def.flow]?.[pending.step] ?? "player #";
+const roleFor = step => ({goal:["scorer","assist1","assist2"], faceoff:["won","lost"], onice:["onice"]})[pending.def.flow]?.[step] ?? "";
+
+function drawHud(){
+  const hud = $("hud");
+  if(!pending){ hud.classList.remove("on"); return; }
+  hud.classList.add("on");
+  const names = pending.quals.map(q => (pending.def.quals||{})[q] || q);
+  $("hud1").innerHTML = pending.def.label
+    + (names.length ? " · " + names.join(", ") : "")
+    + (pending.flagged ? " · flagged" : "")
+    + `<span class="buf${pending.buf ? "" : " empty"}">${pending.buf || "—"}</span>`;
+  const quals = Object.entries(pending.def.quals || {}).map(([k,v]) => k.toUpperCase()+" = "+v).join("   ");
+  $("hud2").textContent = CONFIG.teams[stepTeam()].short + " · " + stepLabel() + (quals ? " · " + quals : "");
+}
+function pushStep(){
+  const value = pending.buf.trim(), team = stepTeam();
+  if(pending.def.flow === "onice"){
+    pending.players = value.split(/\s+/).filter(Boolean).map(n => ({team, number:n, role:"onice"}));
+    return commit();
+  }
+  if(value) pending.players.push({team, number:value, role:roleFor(pending.step)});
+  pending.buf = "";
+  if(pending.step >= lastStep()) return commit();
+  pending.step++; drawHud();
+}
+async function commit(){
+  const body = {
+    t: pending.t, code: pending.def.code, team: pending.team,
+    players: pending.players, quals: pending.quals,
+    flagged: pending.flagged, note: pending.note || "", clip
+  };
+  pending = null; drawHud();
+  try{
+    await api("/event", "POST", body);
+    await refresh();
+  }catch(err){ toast(err.message); }
+  if(autoResume && video.src && video.paused) video.play();
+}
+
+document.addEventListener("keydown", ev => {
+  const typing = ["INPUT","SELECT","TEXTAREA"].includes(ev.target.tagName);
+  if(typing && !pending) return;
+  if(pending){
+    if(ev.key === "Escape"){ ev.preventDefault(); pending = null; drawHud();
+      if(autoResume && video.paused) video.play(); return; }
+    if(ev.key === "Enter"){ ev.preventDefault(); return pushStep(); }
+    if(ev.key === "Backspace"){ ev.preventDefault(); pending.buf = pending.buf.slice(0,-1); return drawHud(); }
+    if(ev.key === "Tab"){ ev.preventDefault(); pending.team = other(pending.team); return drawHud(); }
+    if(ev.key === "?"){ ev.preventDefault(); pending.flagged = !pending.flagged; return drawHud(); }
+    if(ev.key === "/"){ ev.preventDefault(); pending.buf = "?"; return drawHud(); }
+    if(/^[0-9]$/.test(ev.key)){ ev.preventDefault(); pending.buf += ev.key; return drawHud(); }
+    if(ev.key === " " && pending.def.flow === "onice"){ ev.preventDefault(); pending.buf += " "; return drawHud(); }
+    const k = ev.key.toLowerCase();
+    if((pending.def.quals||{})[k]){
+      ev.preventDefault();
+      const i = pending.quals.indexOf(k);
+      i >= 0 ? pending.quals.splice(i,1) : pending.quals.push(k);
+      return drawHud();
+    }
+    if(/^[a-z]$/.test(k)){ ev.preventDefault(); pending.buf += k.toUpperCase(); drawHud(); }
+    return;
+  }
+  if(ev.key === " "){ ev.preventDefault(); return $("playBtn").click(); }
+  if(ev.key === "Tab"){ ev.preventDefault(); return setTeam(other(focusTeam)); }
+  if(ev.key === "ArrowLeft"){ ev.preventDefault(); return seek(ev.shiftKey ? -1 : -5); }
+  if(ev.key === "ArrowRight"){ ev.preventDefault(); return seek(ev.shiftKey ? 1 : 5); }
+  const k = ev.key.toLowerCase();
+  if(CONFIG.events[k] && !ev.ctrlKey && !ev.metaKey && !ev.altKey){ ev.preventDefault(); startTag(k); }
+});
+
+/* ---------- rendering ---------- */
+function setTeam(t){
+  focusTeam = t;
+  document.querySelectorAll("#teamTabs .tab").forEach(b => b.setAttribute("aria-pressed", b.dataset.team === t));
+}
+function buildTabs(){
+  $("teamTabs").innerHTML = "";
+  $("rosterTabs").innerHTML = "";
+  Object.entries(CONFIG.teams).forEach(([key, team]) => {
+    const a = document.createElement("button");
+    a.className = "tab"; a.dataset.team = key; a.textContent = team.name;
+    a.setAttribute("aria-pressed", key === focusTeam);
+    a.onclick = () => setTeam(key);
+    $("teamTabs").appendChild(a);
+
+    const b = document.createElement("button");
+    b.className = "tab"; b.dataset.team = key; b.textContent = team.short;
+    b.setAttribute("aria-pressed", key === rosterTab);
+    b.onclick = () => { rosterTab = key; buildTabs(); refresh(); };
+    $("rosterTabs").appendChild(b);
+  });
+}
+function buildKeys(){
+  $("keys").innerHTML = "";
+  Object.entries(CONFIG.events).forEach(([key, def]) => {
+    const b = document.createElement("button");
+    b.className = "key";
+    b.innerHTML = `<kbd>${key.toUpperCase()}</kbd><span>${def.label}</span>`;
+    b.onclick = () => startTag(key);
+    $("keys").appendChild(b);
+  });
+}
+function renderState(state){
+  $("gameName").value = state.name;
+  $("logCount").textContent = state.events.length + " events";
+  const body = $("log");
+  body.innerHTML = "";
+  state.events.slice().reverse().forEach(e => {
+    const tr = document.createElement("tr");
+    const cls = e.code === "GOAL" ? "goal" : e.code === "ONICE" ? "onice" : "";
+    const players = e.players.map(p => "#" + p.number + (p.role && !["scorer","onice"].includes(p.role) ? ` (${p.role})` : "")).join(", ");
+    tr.innerHTML = `<td class="num"><a href="#" data-jump="${e.t}" style="color:var(--blue)">${e.time}</a></td>
+      <td class="num">${e.clock || "—"}</td><td class="num">${e.period}</td>
+      <td><span class="${cls}">${e.code}</span>${e.detail ? `<div class="muted">${e.detail}</div>` : ""}</td>
+      <td>${CONFIG.teams[e.team].short}</td><td class="num">${players || "—"}</td>
+      <td>${e.flagged ? '<span class="flag">flagged</span> ' : ""}${e.note || ""}</td>
+      <td><button class="btn" data-del="${e.id}">×</button></td>`;
+    body.appendChild(tr);
+  });
+  const chips = $("roster");
+  chips.innerHTML = "";
+  (state.players[rosterTab] || []).forEach(p => {
+    const b = document.createElement("button");
+    b.className = "pchip" + (p.confirmed ? "" : " unconfirmed");
+    b.textContent = "#" + p.number + (p.position ? " " + p.position : "");
+    b.title = p.note || "";
+    b.onclick = () => { if(pending){ pending.buf = p.number; drawHud(); } };
+    chips.appendChild(b);
+  });
+  const last = state.syncs[state.syncs.length - 1];
+  $("clockNow").textContent = last ? `last sync ${last.clock} in period ${last.period}` : "no sync yet";
+}
+function renderLive(s){
+  const box = $("live");
+  const teamLine = Object.entries(s.teams).map(([k,v]) =>
+    `${CONFIG.teams[k].short} ${v.goals}G ${v.sog} shots (${v.attempts} att)`).join(" · ");
+  const top = s.skaters.filter(r => r.g || r.sog || r.shifts).slice(0, 8).map(r =>
+    `<tr><td>${CONFIG.teams[r.team].short}</td><td class="num">#${r.number}</td>
+     <td class="num">${r.g}G ${r.a}A</td><td class="num">${r.sog} sh</td>
+     <td class="num">${r.toi}</td><td class="num">${r.diff >= 0 ? "+" : ""}${r.diff}</td></tr>`).join("");
+  const onice = Object.entries(s.onice).map(([k,v]) =>
+    `${CONFIG.teams[k].short}: ${v.length ? v.map(n=>"#"+n).join(" ") : "not set"}`).join("<br>");
+  const flagged = Object.entries(s.flagged).filter(([,v]) => v[0]).map(([c,v]) => `${c} ${v[0]}/${v[1]}`).join(", ");
+  box.innerHTML = `<div class="muted">${teamLine}</div>
+    <table style="margin-top:8px">${top}</table>
+    <div class="muted" style="margin-top:10px">on ice now<br>${onice}</div>
+    ${flagged ? `<div class="muted" style="margin-top:8px">flagged: ${flagged}</div>` : ""}`;
+}
+$("log").addEventListener("click", async ev => {
+  const jump = ev.target.dataset?.jump;
+  if(jump){ ev.preventDefault(); if(video.src){ video.currentTime = Math.max(0, +jump - 3); video.pause(); } return; }
+  const del = ev.target.dataset?.del;
+  if(del){ await api("/event/" + del, "DELETE"); refresh(); }
+});
+
+/* ---------- controls ---------- */
+$("gameName").onchange = e => api("/name", "POST", {name:e.target.value}).then(()=>toast("renamed"));
+$("syncBtn").onclick = async () => {
+  try{
+    const r = await api("/sync", "POST", {t:video.currentTime, period:$("period").value, clock:$("clockIn").value});
+    $("clockIn").value = ""; toast("clock set to " + r.clock); refresh();
+  }catch(err){ toast(err.message); }
+};
+$("addPlayer").onclick = async () => {
+  const number = $("newNum").value.trim();
+  if(!number) return;
+  await api("/player", "POST", {team:rosterTab, number, position:$("newPos").value});
+  $("newNum").value = ""; refresh();
+};
+$("renameBtn").onclick = async () => {
+  try{
+    await api("/player/rename", "POST",
+      {team:rosterTab, old_number:$("oldNum").value.trim(), new_number:$("renameTo").value.trim()});
+    $("oldNum").value = $("renameTo").value = "";
+    toast("renamed everywhere"); refresh();
+  }catch(err){ toast(err.message); }
+};
+$("exportBtn").onclick = async () => {
+  const r = await api("/export", "POST");
+  toast(`workbook written: ${r.path}`);
+};
+$("snapBtn").onclick = async () => { const r = await api("/snapshot", "POST"); toast("snapshot: " + r.path); };
+
+/* ---------- boot ---------- */
+async function refresh(){
+  const [state, live] = await Promise.all([api("/state"), api("/stats")]);
+  renderState(state); renderLive(live);
+  $("status").textContent = `${state.events.length} events saved to game.json`;
+}
+(async function(){
+  try{
+    CONFIG = await api("/config");
+    buildTabs(); buildKeys(); await refresh();
+  }catch(err){ $("status").textContent = "cannot reach the Python server"; }
+})();
+</script>
+</body>
+</html>
