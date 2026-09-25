@@ -1,4 +1,4 @@
-rom fastapi.testclient import TestClient
+from fastapi.testclient import TestClient
 from rinktag.api import app
  
 c = TestClient(app)
